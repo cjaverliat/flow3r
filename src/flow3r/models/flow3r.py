@@ -167,7 +167,7 @@ class Flow3r(nn.Module):
         checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=True)
         
         model = cls(**model_kwargs) if model_kwargs else cls()
-        model.load_state_dict(checkpoint['model'], strict=False)
+        model.load_state_dict(checkpoint, strict=False)
         
         return model
 
