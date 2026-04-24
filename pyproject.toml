@@ -5,7 +5,7 @@ authors = [
 dependencies = []
 name = "flow3r"
 requires-python = ">= 3.10"
-version = "0.2.2"
+version = "0.2.3"
 
 [build-system]
 build-backend = "setuptools.build_meta"
@@ -39,7 +39,7 @@ matplotlib = "*"
 scipy = "*"
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = ["flow3r*"]
 
 [tool.pixi.feature.cuda128]

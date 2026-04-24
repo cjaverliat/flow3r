@@ -1119,8 +1119,8 @@ packages:
   requires_python: '>=3.6'
 - pypi: ./
   name: flow3r
-  version: 0.2.2
-  sha256: 2a0a1410267bc36b0b09e9fa0e30ee2a1eb6d44188a042190e8ccf5796b4182a
+  version: 0.2.3
+  sha256: 5aaa5e186c3dbcc125663537ba282b328d453f0badbb236eb56265a641e3334e
   requires_python: '>=3.10'
 - pypi: https://files.pythonhosted.org/packages/42/09/7dbe3d7023f57d9b580cfa832109d521988112fd59dddfda3fddda8218f9/fonttools-4.62.1-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
   name: fonttools
