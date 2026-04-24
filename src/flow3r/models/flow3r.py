@@ -23,6 +23,7 @@ class Flow3r(nn.Module):
             self,
             pos_type='rope100',
             decoder_size='large',
+            for_onnx=False,
         ):
         super().__init__()
 
@@ -30,7 +31,7 @@ class Flow3r(nn.Module):
         # ----------------------
         #        Encoder
         # ----------------------
-        self.encoder = dinov2_vitl14_reg(pretrained=False)
+        self.encoder = dinov2_vitl14_reg(pretrained=False, for_onnx=for_onnx)
         self.patch_size = 14
         del self.encoder.mask_token
 

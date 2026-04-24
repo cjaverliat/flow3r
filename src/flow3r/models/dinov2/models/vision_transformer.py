@@ -14,14 +14,12 @@ from typing import Sequence, Tuple, Union, Callable
 
 import torch
 import torch.nn as nn
-from torch.utils.checkpoint import checkpoint
+import torch.utils.checkpoint
 from torch.nn.init import trunc_normal_
 
-from ..layers import Mlp, PatchEmbed, SwiGLUFFNFused, MemEffAttention, NestedTensorBlock as Block
-from ...layers.attention import FlashAttention
+from flow3r.models.dinov2.layers import Mlp, PatchEmbed, SwiGLUFFNFused, MemEffAttention, NestedTensorBlock as Block
 
-
-# logger = logging.getLogger("dinov2")
+logger = logging.getLogger("dinov2")
 
 
 def named_apply(fn: Callable, module: nn.Module, name="", depth_first=True, include_root=False) -> nn.Module:
@@ -44,28 +42,28 @@ class BlockChunk(nn.ModuleList):
 
 class DinoVisionTransformer(nn.Module):
     def __init__(
-        self,
-        img_size=224,
-        patch_size=16,
-        in_chans=3,
-        embed_dim=768,
-        depth=12,
-        num_heads=12,
-        mlp_ratio=4.0,
-        qkv_bias=True,
-        ffn_bias=True,
-        proj_bias=True,
-        drop_path_rate=0.0,
-        drop_path_uniform=False,
-        init_values=None,  # for layerscale: None or 0 => no layerscale
-        embed_layer=PatchEmbed,
-        act_layer=nn.GELU,
-        block_fn=Block,
-        ffn_layer="mlp",
-        block_chunks=1,
-        num_register_tokens=0,
-        interpolate_antialias=False,
-        interpolate_offset=0.1,
+            self,
+            img_size=224,
+            patch_size=16,
+            in_chans=3,
+            embed_dim=768,
+            depth=12,
+            num_heads=12,
+            mlp_ratio=4.0,
+            qkv_bias=True,
+            ffn_bias=True,
+            proj_bias=True,
+            drop_path_rate=0.0,
+            drop_path_uniform=False,
+            init_values=None,  # for layerscale: None or 0 => no layerscale
+            embed_layer=PatchEmbed,
+            act_layer=nn.GELU,
+            block_fn=Block,
+            ffn_layer="mlp",
+            block_chunks=1,
+            num_register_tokens=0,
+            interpolate_antialias=False,
+            interpolate_offset=0.1,
     ):
         """
         Args:
@@ -109,6 +107,8 @@ class DinoVisionTransformer(nn.Module):
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + self.num_tokens, embed_dim))
+        self.N = self.pos_embed.shape[1] - 1
+        self.sqrt_N = math.sqrt(self.N)
         assert num_register_tokens >= 0
         self.register_tokens = (
             nn.Parameter(torch.zeros(1, num_register_tokens, embed_dim)) if num_register_tokens else None
@@ -120,13 +120,13 @@ class DinoVisionTransformer(nn.Module):
             dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule
 
         if ffn_layer == "mlp":
-            # logger.info("using MLP layer as FFN")
+            logger.info("using MLP layer as FFN")
             ffn_layer = Mlp
         elif ffn_layer == "swiglufused" or ffn_layer == "swiglu":
-            # logger.info("using SwiGLU layer as FFN")
+            logger.info("using SwiGLU layer as FFN")
             ffn_layer = SwiGLUFFNFused
         elif ffn_layer == "identity":
-            # logger.info("using Identity layer as FFN")
+            logger.info("using Identity layer as FFN")
 
             def f(*args, **kwargs):
                 return nn.Identity()
@@ -148,7 +148,6 @@ class DinoVisionTransformer(nn.Module):
                 act_layer=act_layer,
                 ffn_layer=ffn_layer,
                 init_values=init_values,
-                attn_class=FlashAttention
             )
             for i in range(depth)
         ]
@@ -158,7 +157,7 @@ class DinoVisionTransformer(nn.Module):
             chunksize = depth // block_chunks
             for i in range(0, depth, chunksize):
                 # this is to keep the block index consistent if we chunk the block list
-                chunked_blocks.append([nn.Identity()] * i + blocks_list[i : i + chunksize])
+                chunked_blocks.append([nn.Identity()] * i + blocks_list[i: i + chunksize])
             self.blocks = nn.ModuleList([BlockChunk(p) for p in chunked_blocks])
         else:
             self.chunked_blocks = False
@@ -181,34 +180,38 @@ class DinoVisionTransformer(nn.Module):
     def interpolate_pos_encoding(self, x, w, h):
         previous_dtype = x.dtype
         npatch = x.shape[1] - 1
-        N = self.pos_embed.shape[1] - 1
-        if npatch == N and w == h:
+
+        if not torch.jit.is_tracing() and not torch.compiler.is_compiling() and npatch == self.N and w == h:
             return self.pos_embed
+
         pos_embed = self.pos_embed.float()
         class_pos_embed = pos_embed[:, 0]
         patch_pos_embed = pos_embed[:, 1:]
         dim = x.shape[-1]
-        w0 = w // self.patch_size
-        h0 = h // self.patch_size
-        M = int(math.sqrt(N))  # Recover the number of patches in each dimension
-        assert N == M * M
-        kwargs = {}
-        if self.interpolate_offset:
-            # Historical kludge: add a small number to avoid floating point error in the interpolation, see https://github.com/facebookresearch/dino/issues/8
-            # Note: still needed for backward-compatibility, the underlying operators are using both output size and scale factors
-            sx = float(w0 + self.interpolate_offset) / M
-            sy = float(h0 + self.interpolate_offset) / M
-            kwargs["scale_factor"] = (sx, sy)
-        else:
-            # Simply specify an output size instead of a scale factor
-            kwargs["size"] = (w0, h0)
+
+        # we add a small number to avoid floating point error in the interpolation
+        # see discussion at https://github.com/facebookresearch/dino/issues/8
+        w0 = torch.div(torch.as_tensor(w), self.patch_size, rounding_mode='floor') + self.interpolate_offset
+        h0 = torch.div(torch.as_tensor(h), self.patch_size, rounding_mode='floor') + self.interpolate_offset
+
+        grid_size = int(self.sqrt_N)
+        patch_pos_embed = patch_pos_embed.reshape(1, grid_size, grid_size, dim).permute(0, 3, 1, 2)
+
+        # Use 'size' instead of 'scale_factor' for better export compatibility
+        # We provide a list of tensors/integers which the tracer can track
+        target_size = (w0.to(torch.int64), h0.to(torch.int64))
+
         patch_pos_embed = nn.functional.interpolate(
-            patch_pos_embed.reshape(1, M, M, dim).permute(0, 3, 1, 2),
+            patch_pos_embed,
+            size=target_size,
             mode="bicubic",
             antialias=self.interpolate_antialias,
-            **kwargs,
         )
-        assert (w0, h0) == patch_pos_embed.shape[-2:]
+
+        if not torch.jit.is_tracing() and not torch.compiler.is_compiling():
+            assert int(w0) == patch_pos_embed.shape[-2]
+            assert int(h0) == patch_pos_embed.shape[-1]
+
         patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(1, -1, dim)
         return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1).to(previous_dtype)
 
@@ -236,10 +239,7 @@ class DinoVisionTransformer(nn.Module):
     def forward_features_list(self, x_list, masks_list):
         x = [self.prepare_tokens_with_masks(x, masks) for x, masks in zip(x_list, masks_list)]
         for blk in self.blocks:
-            if self.training:
-                x = checkpoint(blk, x, use_reentrant=False)
-            else:
-                x = blk(x)
+            x = blk(x)
 
         all_x = x
         output = []
@@ -248,8 +248,8 @@ class DinoVisionTransformer(nn.Module):
             output.append(
                 {
                     "x_norm_clstoken": x_norm[:, 0],
-                    "x_norm_regtokens": x_norm[:, 1 : self.num_register_tokens + 1],
-                    "x_norm_patchtokens": x_norm[:, self.num_register_tokens + 1 :],
+                    "x_norm_regtokens": x_norm[:, 1: self.num_register_tokens + 1],
+                    "x_norm_patchtokens": x_norm[:, self.num_register_tokens + 1:],
                     "x_prenorm": x,
                     "masks": masks,
                 }
@@ -263,16 +263,13 @@ class DinoVisionTransformer(nn.Module):
         x = self.prepare_tokens_with_masks(x, masks)
 
         for blk in self.blocks:
-            if self.training:
-                x = checkpoint(blk, x, use_reentrant=False)
-            else:
-                x = blk(x)
+            x = blk(x)
 
         x_norm = self.norm(x)
         return {
             "x_norm_clstoken": x_norm[:, 0],
-            "x_norm_regtokens": x_norm[:, 1 : self.num_register_tokens + 1],
-            "x_norm_patchtokens": x_norm[:, self.num_register_tokens + 1 :],
+            "x_norm_regtokens": x_norm[:, 1: self.num_register_tokens + 1],
+            "x_norm_patchtokens": x_norm[:, self.num_register_tokens + 1:],
             "x_prenorm": x,
             "masks": masks,
         }
@@ -304,12 +301,12 @@ class DinoVisionTransformer(nn.Module):
         return output
 
     def get_intermediate_layers(
-        self,
-        x: torch.Tensor,
-        n: Union[int, Sequence] = 1,  # Layers or n last layers to take
-        reshape: bool = False,
-        return_class_token: bool = False,
-        norm=True,
+            self,
+            x: torch.Tensor,
+            n: Union[int, Sequence] = 1,  # Layers or n last layers to take
+            reshape: bool = False,
+            return_class_token: bool = False,
+            norm=True,
     ) -> Tuple[Union[torch.Tensor, Tuple[torch.Tensor]]]:
         if self.chunked_blocks:
             outputs = self._get_intermediate_layers_chunked(x, n)
@@ -318,11 +315,13 @@ class DinoVisionTransformer(nn.Module):
         if norm:
             outputs = [self.norm(out) for out in outputs]
         class_tokens = [out[:, 0] for out in outputs]
-        outputs = [out[:, 1 + self.num_register_tokens :] for out in outputs]
+        outputs = [out[:, 1 + self.num_register_tokens:] for out in outputs]
         if reshape:
             B, _, w, h = x.shape
             outputs = [
-                out.reshape(B, w // self.patch_size, h // self.patch_size, -1).permute(0, 3, 1, 2).contiguous()
+                # Use torch.div with rounding_mode instead of // for tracing
+                out.reshape(B, torch.div(w, self.patch_size, rounding_mode='floor'),
+                            torch.div(h, self.patch_size, rounding_mode='floor'), -1).permute(0, 3, 1, 2).contiguous()
                 for out in outputs
             ]
         if return_class_token:
@@ -345,49 +344,69 @@ def init_weights_vit_timm(module: nn.Module, name: str = ""):
             nn.init.zeros_(module.bias)
 
 
-def vit_small(patch_size=16, num_register_tokens=0, **kwargs):
+def vit_small(
+        patch_size: int = 16,
+        num_register_tokens: int = 0,
+        attn_class: nn.Module = MemEffAttention,
+        **kwargs
+):
     model = DinoVisionTransformer(
         patch_size=patch_size,
         embed_dim=384,
         depth=12,
         num_heads=6,
         mlp_ratio=4,
-        block_fn=partial(Block, attn_class=MemEffAttention),
+        block_fn=partial(Block, attn_class=attn_class),
         num_register_tokens=num_register_tokens,
         **kwargs,
     )
     return model
 
 
-def vit_base(patch_size=16, num_register_tokens=0, **kwargs):
+def vit_base(
+        patch_size: int = 16,
+        num_register_tokens: int = 0,
+        attn_class: nn.Module = MemEffAttention,
+        **kwargs
+):
     model = DinoVisionTransformer(
         patch_size=patch_size,
         embed_dim=768,
         depth=12,
         num_heads=12,
         mlp_ratio=4,
-        block_fn=partial(Block, attn_class=MemEffAttention),
+        block_fn=partial(Block, attn_class=attn_class),
         num_register_tokens=num_register_tokens,
         **kwargs,
     )
     return model
 
 
-def vit_large(patch_size=16, num_register_tokens=0, **kwargs):
+def vit_large(
+        patch_size: int = 16,
+        num_register_tokens: int = 0,
+        attn_class: nn.Module = MemEffAttention,
+        **kwargs
+):
     model = DinoVisionTransformer(
         patch_size=patch_size,
         embed_dim=1024,
         depth=24,
         num_heads=16,
         mlp_ratio=4,
-        block_fn=partial(Block, attn_class=MemEffAttention),
+        block_fn=partial(Block, attn_class=attn_class),
         num_register_tokens=num_register_tokens,
         **kwargs,
     )
     return model
 
 
-def vit_giant2(patch_size=16, num_register_tokens=0, **kwargs):
+def vit_giant2(
+        patch_size: int = 16,
+        num_register_tokens: int = 0,
+        attn_class: nn.Module = MemEffAttention,
+        **kwargs
+):
     """
     Close to ViT-giant, with embed-dim 1536 and 24 heads => embed-dim per head 64
     """
@@ -397,7 +416,7 @@ def vit_giant2(patch_size=16, num_register_tokens=0, **kwargs):
         depth=40,
         num_heads=24,
         mlp_ratio=4,
-        block_fn=partial(Block, attn_class=MemEffAttention),
+        block_fn=partial(Block, attn_class=attn_class),
         num_register_tokens=num_register_tokens,
         **kwargs,
     )

@@ -5,6 +5,7 @@ __pycache__/
 checkpoints/*.bin
 .gradio
 .venv/
+outputs/
 
 # macOS system files
 .DS_Store

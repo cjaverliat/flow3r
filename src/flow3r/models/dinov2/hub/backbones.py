@@ -9,6 +9,7 @@ from typing import Union
 import torch
 
 from .utils import _DINOV2_BASE_URL, _make_dinov2_model_name
+from ..layers.attention import Attention
 
 
 class Weights(Enum):
@@ -61,96 +62,181 @@ def _make_dinov2_model(
     return model
 
 
-def dinov2_vits14(*, pretrained: bool = True, weights: Union[Weights, str] = Weights.LVD142M, **kwargs):
+def dinov2_vits14(*, pretrained: bool = True, weights: Union[Weights, str] = Weights.LVD142M, for_onnx: bool = False, **kwargs):
     """
     DINOv2 ViT-S/14 model (optionally) pretrained on the LVD-142M dataset.
     """
-    return _make_dinov2_model(arch_name="vit_small", pretrained=pretrained, weights=weights, **kwargs)
+    if not for_onnx:
+        return _make_dinov2_model(arch_name="vit_small", pretrained=pretrained, weights=weights, **kwargs)
+    else:
+        return _make_dinov2_model(
+            arch_name="vit_small",
+            pretrained=pretrained,
+            weights=weights,
+            attn_class=Attention,
+            **kwargs
+        )
 
 
-def dinov2_vitb14(*, pretrained: bool = True, weights: Union[Weights, str] = Weights.LVD142M, **kwargs):
+def dinov2_vitb14(*, pretrained: bool = True, weights: Union[Weights, str] = Weights.LVD142M, for_onnx: bool = False, **kwargs):
     """
     DINOv2 ViT-B/14 model (optionally) pretrained on the LVD-142M dataset.
     """
-    return _make_dinov2_model(arch_name="vit_base", pretrained=pretrained, weights=weights, **kwargs)
+    if not for_onnx:
+        return _make_dinov2_model(arch_name="vit_base", pretrained=pretrained, weights=weights, **kwargs)
+    else:
+        return _make_dinov2_model(
+            arch_name="vit_base",
+            pretrained=pretrained,
+            weights=weights,
+            attn_class=Attention,
+            **kwargs
+        )
 
 
-def dinov2_vitl14(*, pretrained: bool = True, weights: Union[Weights, str] = Weights.LVD142M, **kwargs):
+def dinov2_vitl14(*, pretrained: bool = True, weights: Union[Weights, str] = Weights.LVD142M, for_onnx: bool = False, **kwargs):
     """
     DINOv2 ViT-L/14 model (optionally) pretrained on the LVD-142M dataset.
     """
-    return _make_dinov2_model(arch_name="vit_large", pretrained=pretrained, weights=weights, **kwargs)
+    if not for_onnx:
+        return _make_dinov2_model(arch_name="vit_large", pretrained=pretrained, weights=weights, **kwargs)
+    else:
+        return _make_dinov2_model(
+            arch_name="vit_large",
+            pretrained=pretrained,
+            weights=weights,
+            attn_class=Attention,
+            **kwargs
+        )
 
 
-def dinov2_vitg14(*, pretrained: bool = True, weights: Union[Weights, str] = Weights.LVD142M, **kwargs):
+def dinov2_vitg14(*, pretrained: bool = True, weights: Union[Weights, str] = Weights.LVD142M, for_onnx: bool = False, **kwargs):
     """
     DINOv2 ViT-g/14 model (optionally) pretrained on the LVD-142M dataset.
     """
-    return _make_dinov2_model(
-        arch_name="vit_giant2",
-        ffn_layer="swiglufused",
-        weights=weights,
-        pretrained=pretrained,
-        **kwargs,
-    )
+    if not for_onnx:
+        return _make_dinov2_model(
+            arch_name="vit_giant2",
+            ffn_layer="swiglufused",
+            weights=weights,
+            pretrained=pretrained,
+            **kwargs,
+        )
+    else:
+        return _make_dinov2_model(
+            arch_name="vit_giant2",
+            ffn_layer="swiglufused",
+            weights=weights,
+            pretrained=pretrained,
+            attn_class=Attention,
+            **kwargs,
+        )
 
 
-def dinov2_vits14_reg(*, pretrained: bool = True, weights: Union[Weights, str] = Weights.LVD142M, **kwargs):
+def dinov2_vits14_reg(*, pretrained: bool = True, weights: Union[Weights, str] = Weights.LVD142M, for_onnx: bool = False, **kwargs):
     """
     DINOv2 ViT-S/14 model with registers (optionally) pretrained on the LVD-142M dataset.
     """
-    return _make_dinov2_model(
-        arch_name="vit_small",
-        pretrained=pretrained,
-        weights=weights,
-        num_register_tokens=4,
-        interpolate_antialias=True,
-        interpolate_offset=0.0,
-        **kwargs,
-    )
+    if not for_onnx:
+        return _make_dinov2_model(
+            arch_name="vit_small",
+            pretrained=pretrained,
+            weights=weights,
+            num_register_tokens=4,
+            interpolate_antialias=True,
+            interpolate_offset=0.0,
+            **kwargs,
+        )
+    else:
+        return _make_dinov2_model(
+            arch_name="vit_small",
+            pretrained=pretrained,
+            weights=weights,
+            num_register_tokens=4,
+            interpolate_antialias=False,
+            interpolate_offset=0.0,
+            attn_class=Attention,
+            **kwargs,
+        )
 
 
-def dinov2_vitb14_reg(*, pretrained: bool = True, weights: Union[Weights, str] = Weights.LVD142M, **kwargs):
+def dinov2_vitb14_reg(*, pretrained: bool = True, weights: Union[Weights, str] = Weights.LVD142M, for_onnx: bool = False, **kwargs):
     """
     DINOv2 ViT-B/14 model with registers (optionally) pretrained on the LVD-142M dataset.
     """
-    return _make_dinov2_model(
-        arch_name="vit_base",
-        pretrained=pretrained,
-        weights=weights,
-        num_register_tokens=4,
-        interpolate_antialias=True,
-        interpolate_offset=0.0,
-        **kwargs,
-    )
+    if not for_onnx:
+        return _make_dinov2_model(
+            arch_name="vit_base",
+            pretrained=pretrained,
+            weights=weights,
+            num_register_tokens=4,
+            interpolate_antialias=True,
+            interpolate_offset=0.0,
+            **kwargs,
+        )
+    else:
+        return _make_dinov2_model(
+            arch_name="vit_base",
+            pretrained=pretrained,
+            weights=weights,
+            num_register_tokens=4,
+            interpolate_antialias=False,
+            interpolate_offset=0.0,
+            attn_class=Attention,
+            **kwargs,
+        )
 
 
-def dinov2_vitl14_reg(*, pretrained: bool = True, weights: Union[Weights, str] = Weights.LVD142M, **kwargs):
+def dinov2_vitl14_reg(*, pretrained: bool = True, weights: Union[Weights, str] = Weights.LVD142M, for_onnx: bool = False, **kwargs):
     """
     DINOv2 ViT-L/14 model with registers (optionally) pretrained on the LVD-142M dataset.
     """
-    return _make_dinov2_model(
-        arch_name="vit_large",
-        pretrained=pretrained,
-        weights=weights,
-        num_register_tokens=4,
-        interpolate_antialias=True,
-        interpolate_offset=0.0,
-        **kwargs,
-    )
+    if not for_onnx:
+        return _make_dinov2_model(
+            arch_name="vit_large",
+            pretrained=pretrained,
+            weights=weights,
+            num_register_tokens=4,
+            interpolate_antialias=True,
+            interpolate_offset=0.0,
+            **kwargs,
+        )
+    else:
+        return _make_dinov2_model(
+            arch_name="vit_large",
+            pretrained=pretrained,
+            weights=weights,
+            num_register_tokens=4,
+            interpolate_antialias=False,
+            interpolate_offset=0.0,
+            attn_class=Attention,
+            **kwargs,
+        )
 
 
-def dinov2_vitg14_reg(*, pretrained: bool = True, weights: Union[Weights, str] = Weights.LVD142M, **kwargs):
+def dinov2_vitg14_reg(*, pretrained: bool = True, weights: Union[Weights, str] = Weights.LVD142M, for_onnx: bool = False, **kwargs):
     """
     DINOv2 ViT-g/14 model with registers (optionally) pretrained on the LVD-142M dataset.
     """
-    return _make_dinov2_model(
-        arch_name="vit_giant2",
-        ffn_layer="swiglufused",
-        weights=weights,
-        pretrained=pretrained,
-        num_register_tokens=4,
-        interpolate_antialias=True,
-        interpolate_offset=0.0,
-        **kwargs,
-    )
+    if not for_onnx:
+        return _make_dinov2_model(
+            arch_name="vit_giant2",
+            ffn_layer="swiglufused",
+            weights=weights,
+            pretrained=pretrained,
+            num_register_tokens=4,
+            interpolate_antialias=True,
+            interpolate_offset=0.0,
+            **kwargs,
+        )
+    else:
+        return _make_dinov2_model(
+            arch_name="vit_giant2",
+            ffn_layer="swiglufused",
+            weights=weights,
+            pretrained=pretrained,
+            num_register_tokens=4,
+            interpolate_antialias=False,
+            interpolate_offset=0.0,
+            **kwargs,
+        )

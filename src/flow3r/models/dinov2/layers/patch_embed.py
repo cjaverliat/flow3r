@@ -9,6 +9,7 @@
 
 from typing import Callable, Optional, Tuple, Union
 
+import torch
 from torch import Tensor
 import torch.nn as nn
 
@@ -69,8 +70,9 @@ class PatchEmbed(nn.Module):
         _, _, H, W = x.shape
         patch_H, patch_W = self.patch_size
 
-        assert H % patch_H == 0, f"Input image height {H} is not a multiple of patch height {patch_H}"
-        assert W % patch_W == 0, f"Input image width {W} is not a multiple of patch width: {patch_W}"
+        if not torch.jit.is_tracing() and not torch.compiler.is_compiling():
+            assert H % patch_H == 0, f"Input image height {H} is not a multiple of patch height {patch_H}"
+            assert W % patch_W == 0, f"Input image width {W} is not a multiple of patch width: {patch_W}"
 
         x = self.proj(x)  # B C H W
         H, W = x.size(2), x.size(3)
