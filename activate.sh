@@ -1,0 +1,5 @@
+#!/bin/bash
+export PATH="$CONDA_PREFIX/bin:$PATH"
+export CUDA_HOME="$CONDA_PREFIX"
+export CUDA_PATH="$CONDA_PREFIX"
+export PYTHONNOUSERSITE=1

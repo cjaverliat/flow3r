@@ -4,6 +4,7 @@ __pycache__/
 !.pixi/config.toml
 checkpoints/*.bin
 .gradio
+.venv/
 
 # macOS system files
 .DS_Store

@@ -8,18 +8,18 @@ requires-python = ">= 3.10"
 version = "0.2.2"
 
 [build-system]
-build-backend = "hatchling.build"
-requires = ["hatchling"]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools", "torch"]
 
 [tool.pixi.workspace]
-channels = ["conda-forge"]
+channels = ["conda-forge", "nvidia"]
 platforms = ["linux-64", "win-64"]
 
 [tool.pixi.pypi-dependencies]
 flow3r = { path = ".", editable = true }
-torch = { version = "==2.10.*", index = "https://download.pytorch.org/whl/cu128" }
-torchvision = { version = ">=0.22.0", index = "https://download.pytorch.org/whl/cu128" }
-torchaudio = { version = "==2.10.*", index = "https://download.pytorch.org/whl/cu128" }
+torch = { version = ">=2.5", index = "https://download.pytorch.org/whl/cu128" }
+torchvision = { index = "https://download.pytorch.org/whl/cu128" }
+torchaudio = { index = "https://download.pytorch.org/whl/cu128" }
 numpy = "*"
 opencv-python = "*"
 pillow = "*"
@@ -38,4 +38,42 @@ gradio = "*"
 matplotlib = "*"
 scipy = "*"
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["flow3r*"]
+
+[tool.pixi.feature.cuda128]
+platforms = ["linux-64", "win-64"]
+channels = ["conda-forge", "nvidia"]
+
+[tool.pixi.feature.cuda128.system-requirements]
+cuda = "12.8"
+
+[tool.pixi.target.win-64.dependencies]
+vs2022_win-64 = "*" # to activate vcvars64.bat automatically when the pixi environment is activated
+vc = "*"
+vswhere = "*"
+
+[tool.pixi.target.linux-64.activation]
+scripts = ["activate.sh"]
+
+[tool.pixi.target.win-64.activation]
+scripts = ["activate.bat"]
+
+[tool.pixi.feature.cuda128.dependencies]
+cuda-version = "12.8.*"
+cuda-nvcc = "*"
+
+[tool.pixi.dependencies]
+python = ">=3.10"
+pip = "*"
+pixi-pycharm = ">=0.0.11,<0.0.12"
+cmake = "*"
+ninja = "*"
+
+[tool.pixi.environments.default]
+features = ["cuda128"]
+solve-group = "default"
+
 [tool.pixi.tasks]
+build-curope = "pip install -e . --no-build-isolation"
