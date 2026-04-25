@@ -24,9 +24,9 @@ class Flow3r(nn.Module):
             pos_type='rope100',
             decoder_size='large',
             for_onnx=False,
-        ):
+            max_pos=512
+    ):
         super().__init__()
-
 
         # ----------------------
         #        Encoder
@@ -39,15 +39,17 @@ class Flow3r(nn.Module):
         #  Positonal Encoding
         # ----------------------
         self.pos_type = pos_type if pos_type is not None else 'none'
-        self.rope=None
-        if self.pos_type.startswith('rope'): # eg rope100 
-            if RoPE2D is None: raise ImportError("Cannot find cuRoPE2D, please install it following the README instructions")
+        self.rope = None
+        if self.pos_type.startswith('rope'):  # eg rope100
+            if RoPE2D is None:
+                raise ImportError("Cannot find cuRoPE2D, please install it following the README instructions")
             freq = float(self.pos_type[len('rope'):])
             self.rope = RoPE2D(freq=freq)
+            if hasattr(self.rope, "max_pos"):
+                self.rope.max_pos = max_pos
             self.position_getter = PositionGetter()
         else:
             raise NotImplementedError
-        
 
         # ----------------------
         #        Decoder
@@ -100,7 +102,7 @@ class Flow3r(nn.Module):
         #  Local Points Decoder
         # ----------------------
         self.point_decoder = TransformerDecoder(
-            in_dim=2*self.dec_embed_dim, 
+            in_dim=2 * self.dec_embed_dim,
             dec_embed_dim=1024,
             dec_num_heads=16,
             out_dim=1024,
@@ -112,29 +114,29 @@ class Flow3r(nn.Module):
         #  Camera Pose Decoder
         # ----------------------
         self.camera_decoder = TransformerDecoder(
-            in_dim=2*self.dec_embed_dim, 
+            in_dim=2 * self.dec_embed_dim,
             dec_embed_dim=1024,
-            dec_num_heads=16,                # 8
+            dec_num_heads=16,  # 8
             out_dim=512,
             rope=self.rope,
             use_checkpoint=False
         )
         self.camera_head = CameraHead(dim=512)
-        
+
         # ----------------------
         #  Motion Flow Decoder
         # ----------------------
         self.flow_head = DPTHead(
-            patch_size=14, 
+            patch_size=14,
             output_dim=2,
         )
-    
+
         # ----------------------
         #     Conf Decoder
         # ----------------------
         self.conf_decoder = deepcopy(self.point_decoder)
         self.conf_head = LinearPts3d(patch_size=14, dec_embed_dim=1024, output_dim=1)
-    
+
         # For ImageNet Normalize
         image_mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
         image_std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
@@ -143,7 +145,8 @@ class Flow3r(nn.Module):
         self.register_buffer("image_std", image_std)
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path: Union[str, Path, IO[bytes]], model_kwargs: Optional[Dict[str, Any]] = None, **hf_kwargs) -> 'Flow3r':
+    def from_pretrained(cls, pretrained_model_name_or_path: Union[str, Path, IO[bytes]],
+                        model_kwargs: Optional[Dict[str, Any]] = None, **hf_kwargs) -> 'Flow3r':
         """
         Load a model from a checkpoint file.
 
@@ -166,28 +169,29 @@ class Flow3r(nn.Module):
                 **hf_kwargs
             )
         checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=True)
-        
+
         model = cls(**model_kwargs) if model_kwargs else cls()
         model.load_state_dict(checkpoint, strict=False)
-        
+
         return model
 
     def decode(self, hidden, N, H, W):
-        BN, hw, _ = hidden.shape
+        BN = hidden.shape[0]
+        hw = hidden.shape[1]
         B = BN // N
 
         final_output = []
-        
-        hidden = hidden.reshape(B*N, hw, -1)
 
-        register_token = self.register_token.repeat(B, N, 1, 1).reshape(B*N, *self.register_token.shape[-2:])
+        hidden = hidden.reshape(B * N, hw, -1)
+
+        register_token = self.register_token.repeat(B, N, 1, 1).reshape(B * N, *self.register_token.shape[-2:])
 
         # Concatenate special tokens with patch tokens
         hidden = torch.cat([register_token, hidden], dim=1)
         hw = hidden.shape[1]
 
         if self.pos_type.startswith('rope'):
-            pos = self.position_getter(B * N, H//self.patch_size, W//self.patch_size, hidden.device)
+            pos = self.position_getter(B * N, H // self.patch_size, W // self.patch_size, hidden.device)
 
         if self.patch_start_idx > 0:
             # do not use position embedding for special tokens (camera and register tokens)
@@ -195,33 +199,33 @@ class Flow3r(nn.Module):
             pos = pos + 1
             pos_special = torch.zeros(B * N, self.patch_start_idx, 2).to(hidden.device).to(pos.dtype)
             pos = torch.cat([pos_special, pos], dim=1)
-       
+
         for i in range(len(self.decoder)):
             blk = self.decoder[i]
 
             if i % 2 == 0:
-                pos = pos.reshape(B*N, hw, -1)
-                hidden = hidden.reshape(B*N, hw, -1)
+                pos = pos.reshape(B * N, hw, -1)
+                hidden = hidden.reshape(B * N, hw, -1)
             else:
-                pos = pos.reshape(B, N*hw, -1)
-                hidden = hidden.reshape(B, N*hw, -1)
+                pos = pos.reshape(B, N * hw, -1)
+                hidden = hidden.reshape(B, N * hw, -1)
 
             hidden = blk(hidden, xpos=pos)
 
-            if i+1 in [len(self.decoder)-1, len(self.decoder)]:
-                final_output.append(hidden.reshape(B*N, hw, -1))
+            if i + 1 in [len(self.decoder) - 1, len(self.decoder)]:
+                final_output.append(hidden.reshape(B * N, hw, -1))
 
-        return torch.cat([final_output[0], final_output[1]], dim=-1), pos.reshape(B*N, hw, -1)
-    
+        return torch.cat([final_output[0], final_output[1]], dim=-1), pos.reshape(B * N, hw, -1)
+
     def forward(self, imgs, pair_indices=None):
         imgs = (imgs - self.image_mean) / self.image_std
         # print("the shape of imgs is", imgs.shape)
 
         B, N, _, H, W = imgs.shape
         patch_h, patch_w = H // 14, W // 14
-        
+
         # encode by dinov2
-        imgs = imgs.reshape(B*N, _, H, W)
+        imgs = imgs.reshape(B * N, _, H, W)
         hidden = self.encoder(imgs, is_training=True)
 
         if isinstance(hidden, dict):
@@ -229,9 +233,9 @@ class Flow3r(nn.Module):
 
         hidden, pos = self.decode(hidden, N, H, W)
 
-        point_hidden, point_intermediate = self.point_decoder(hidden, xpos=pos, return_intermediate=True) 
+        point_hidden, point_intermediate = self.point_decoder(hidden, xpos=pos, return_intermediate=True)
         conf_hidden = self.conf_decoder(hidden, xpos=pos)
-        camera_hidden, camera_intermediate = self.camera_decoder(hidden, xpos=pos, return_intermediate=True) 
+        camera_hidden, camera_intermediate = self.camera_decoder(hidden, xpos=pos, return_intermediate=True)
 
         with torch.amp.autocast(device_type='cuda', enabled=False):
             # local points
@@ -244,17 +248,21 @@ class Flow3r(nn.Module):
             # confidence
             conf_hidden = conf_hidden.float()
             conf = self.conf_head([conf_hidden[:, self.patch_start_idx:]], (H, W)).reshape(B, N, H, W, -1)
-                
+
             # camera
             camera_hidden = camera_hidden.float()
             camera_poses = self.camera_head(camera_hidden[:, self.patch_start_idx:], patch_h, patch_w).reshape(B, N, 4, 4)
 
             # Flow
             if pair_indices is not None:
-                flow = self.flow_head([t.float() for t in point_intermediate], [t.float() for t in camera_intermediate], pair_indices, self.patch_start_idx,(H, W), B, N)
+                flow = self.flow_head(
+                    [t.float() for t in point_intermediate],
+                    [t.float() for t in camera_intermediate],
+                    pair_indices, self.patch_start_idx, (H, W), B, N
+                )
             else:
-                flow = None
-            
+                flow = torch.empty(0, dtype=torch.float32, device=imgs.device)
+
             # unproject local points using camera poses
             points = torch.einsum('bnij, bnhwj -> bnhwi', camera_poses, homogenize_points(local_points))[..., :3]
 
@@ -263,5 +271,5 @@ class Flow3r(nn.Module):
             local_points=local_points,
             conf=conf,
             camera_poses=camera_poses,
-            flow=flow, 
+            flow=flow,
         )

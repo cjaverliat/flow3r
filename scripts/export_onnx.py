@@ -1,70 +1,95 @@
 import logging
-import torch
+import os.path
+
+import onnx
+import onnxsim
 import torch.onnx
 
 from flow3r.models.flow3r import Flow3r
-from flow3r.models.onnx_compat import onnx_export_mode
-import os
 
 
 class Wrapper(torch.nn.Module):
     """
-    Wrapper class for DINOV2 model.
+    Wrapper class for Flow3r model.
     """
 
     def __init__(self, model: Flow3r):
         super().__init__()
         self.model = model
 
-    def forward(self, images: torch.Tensor):
-        ff = self.model.forward(images)
-        return ff
+    def forward(self, imgs: torch.Tensor, pair_indices: torch.Tensor | None = None):
+        return self.model.forward(imgs, pair_indices=pair_indices)
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     logging.info("Loading model...")
-    # Use CPU: CUDA custom ops (cuRoPE2D, FlashAttention backends) can't be
-    # serialised to ONNX. The model runs on CPU during export tracing.
-    device = torch.device("cpu")
-    flow3r = Flow3r.from_pretrained("Clara211111/flow3r", model_kwargs=dict(for_onnx=True)).to(device).eval()
 
-    img_w, img_h = 280, 280
     patch_size = 14
+    max_img_w, max_img_h = 672, 672
+
+    assert max_img_w % patch_size == 0
+    assert max_img_h % patch_size == 0
+    max_pos = max(max_img_w, max_img_h) // patch_size
+
+    device = torch.device("cpu")
+    model_kwargs = dict(for_onnx=True, max_pos=max_pos)
+    flow3r = Flow3r.from_pretrained("Clara211111/flow3r", model_kwargs=model_kwargs)
+    flow3r = flow3r.to(device).eval()
 
     # B=1, N=2 (num frames), C=3, H, W.
     # H and W must be multiples of 14 (DINOv2 patch size).
-    B, N, C, H, W = 1, 2, 3, img_h, img_w  # 280 x 280
+    # Use non-max dummy values so the exporter sees variation from the bounds.
+    B, N, C, H, W = 2, 2, 3, 448, 448
     dummy_imgs = torch.randn((B, N, C, H, W), dtype=torch.float32, device=device)
-    # One pair per batch: (image 0, image 1). Triggers the DPT flow head.
-    dummy_pair_indices = torch.tensor([[[0, 1]]], dtype=torch.long, device=device)
 
     model = Wrapper(flow3r)
 
-    batch = torch.export.Dim("batch", min=1)
-    num_frames = torch.export.Dim("num_frames", min=1)
-    height = torch.export.Dim("height", min=140, max=1400)  # Must be multiple of 14
-    width = torch.export.Dim("width", min=140, max=1400)  # Must be multiple of 14
+    b_sym = torch.export.Dim("B", min=1, max=16)
+    n_sym = torch.export.Dim("N", min=1, max=16)
+    # Express H and W as multiples of patch_size so the exporter knows the
+    # divisibility constraint and won't specialise on the dummy value.
+    patch_h_sym = torch.export.Dim("patch_H", min=1, max=max_img_h // patch_size)
+    patch_w_sym = torch.export.Dim("patch_W", min=1, max=max_img_w // patch_size)
+    h_sym = patch_size * patch_h_sym
+    w_sym = patch_size * patch_w_sym
 
-    logging.info("Exporting ONNX model...")
-    os.makedirs("./outputs", exist_ok=True)
-    with onnx_export_mode():
-        torch.onnx.export(
+    output_path = "./outputs/flow3r.onnx"
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    # Note that pair_indices stays None so the flow_head will not be exported.
+    torch.onnx.export(
+        model,
+        (dummy_imgs,),
+        output_path,
+        input_names=["imgs"],
+        output_names=["output"],
+        opset_version=18,
+        dynamo=True,
+        dynamic_shapes={
+            "imgs": {0: b_sym, 1: n_sym, 3: h_sym, 4: w_sym},
+        },
+        # verify=True,
+    )
+    logging.info(f"Exported ONNX model to {os.path.abspath(output_path)}.")
+
+    # onnxsim calls SerializeToString() internally which fails for models >2 GB.
+    # Load with external data disabled so weights stay on disk, keeping the
+    # in-memory proto small enough to serialize.
+    model = onnx.load(output_path, load_external_data=False)
+
+    try:
+        # Pass dynamic input shapes so onnxsim does not bake in the dummy-input
+        # dimensions during constant folding.
+        model, success = onnxsim.simplify(
             model,
-            dummy_imgs.reshape(B, N, C, H, W),
-            "./outputs/flow3r.onnx",
-            input_names=["images"], output_names=["output"],
-            opset_version=18,
-            dynamo=True,
-            dynamic_shapes={
-                "images": {
-                    0: batch,
-                    1: num_frames,
-                    3: height,
-                    4: width
-                },
-            },
-            verify=True,
+            overwrite_input_shapes={"imgs": [B, N, C, H, W]}
         )
-    logging.info("Exported ONNX model.")
+        if success:
+            onnx.save(model, output_path)
+            logging.info(
+                f"Successfully simplified the model and overwrote {os.path.abspath(output_path)}.")
+        else:
+            logging.warning("onnxsim reported failure — keeping the unsimplified model.")
+    except Exception as e:
+        logging.warning(f"onnxsim simplification skipped ({e}); model saved without simplification.")

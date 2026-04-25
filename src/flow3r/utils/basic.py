@@ -4,11 +4,45 @@ import math
 import cv2
 from PIL import Image
 import torch
-from torchvision import transforms
+
+from torchvision.transforms import ToTensor
+from torchvision.transforms.functional import resize, InterpolationMode
 from plyfile import PlyData, PlyElement
 import numpy as np
 
-def load_images_as_tensor(path='data/truck', interval=1, PIXEL_LIMIT=255000):
+def prepare_images(images: list[torch.Tensor] | torch.Tensor, pixel_limit: int = 255_000)-> torch.Tensor:
+    has_batch_dim = isinstance(images, list) or images.ndim == 4
+    if not has_batch_dim:
+        images.unsqueeze(0)
+
+    first_img = images[0]
+    H_orig, W_orig = first_img.shape[1:3]
+    scale = math.sqrt(pixel_limit / (W_orig * H_orig)) if W_orig * H_orig > 0 else 1
+    W_target = W_orig * scale
+    H_target = H_orig * scale
+    k = round(W_target / 14)
+    m = round(H_target / 14)
+    while (k * 14) * (m * 14) > pixel_limit:
+        if k / m > W_target / H_target:
+            k -= 1
+        else:
+            m -= 1
+    target_w, target_h = max(1, k) * 14, max(1, m) * 14
+
+    tensor_list = []
+
+    for image in images:
+        resized_img = resize(image, [target_h, target_w], InterpolationMode.BILINEAR)
+        tensor_list.append(resized_img)
+
+    images = torch.stack(tensor_list, dim=0)
+
+    if not has_batch_dim:
+        images = images.squeeze(dim=0)
+
+    return images
+
+def load_images_as_tensor(path='data/truck', interval=1, pixel_limit: int = 255_000):
     """
     Loads images from a directory or video, resizes them to a uniform size,
     then converts and stacks them into a single [N, 3, H, W] PyTorch tensor.
@@ -47,40 +81,15 @@ def load_images_as_tensor(path='data/truck', interval=1, PIXEL_LIMIT=255000):
 
     print(f"Found {len(sources)} images/frames. Processing...")
 
-    # --- 2. Determine a uniform target size for all images based on the first image ---
-    # This is necessary to ensure all tensors have the same dimensions for stacking.
-    first_img = sources[0]
-    W_orig, H_orig = first_img.size
-    scale = math.sqrt(PIXEL_LIMIT / (W_orig * H_orig)) if W_orig * H_orig > 0 else 1
-    W_target, H_target = W_orig * scale, H_orig * scale
-    k, m = round(W_target / 14), round(H_target / 14)
-    while (k * 14) * (m * 14) > PIXEL_LIMIT:
-        if k / m > W_target / H_target: k -= 1
-        else: m -= 1
-    TARGET_W, TARGET_H = max(1, k) * 14, max(1, m) * 14
-    print(f"All images will be resized to a uniform size: ({TARGET_W}, {TARGET_H})")
-
-    # --- 3. Resize images and convert them to tensors in the [0, 1] range ---
-    tensor_list = []
+    images = []
     # Define a transform to convert a PIL Image to a CxHxW tensor and normalize to [0,1]
-    to_tensor_transform = transforms.ToTensor()
-    
+    to_tensor_transform = ToTensor()
+
     for img_pil in sources:
-        try:
-            # Resize to the uniform target size
-            resized_img = img_pil.resize((TARGET_W, TARGET_H), Image.Resampling.LANCZOS)
-            # Convert to tensor
-            img_tensor = to_tensor_transform(resized_img)
-            tensor_list.append(img_tensor)
-        except Exception as e:
-            print(f"Error processing an image: {e}")
+        img_tensor = to_tensor_transform(img_pil)
+        images.append(img_tensor)
 
-    if not tensor_list:
-        print("No images were successfully processed.")
-        return torch.empty(0)
-
-    # --- 4. Stack the list of tensors into a single [N, C, H, W] batch tensor ---
-    return torch.stack(tensor_list, dim=0)
+    return prepare_images(images, pixel_limit=pixel_limit)
 
 
 def tensor_to_pil(tensor):

@@ -189,17 +189,16 @@ class DinoVisionTransformer(nn.Module):
         patch_pos_embed = pos_embed[:, 1:]
         dim = x.shape[-1]
 
-        # we add a small number to avoid floating point error in the interpolation
-        # see discussion at https://github.com/facebookresearch/dino/issues/8
-        w0 = torch.div(torch.as_tensor(w), self.patch_size, rounding_mode='floor') + self.interpolate_offset
-        h0 = torch.div(torch.as_tensor(h), self.patch_size, rounding_mode='floor') + self.interpolate_offset
+        # Use Python floor division on SymInt shape values — avoids torch.as_tensor()
+        # which creates shape guards incompatible with torch.export strict mode.
+        # H and W are exact multiples of patch_size so no float offset is needed.
+        w0 = w // self.patch_size
+        h0 = h // self.patch_size
 
         grid_size = int(self.sqrt_N)
         patch_pos_embed = patch_pos_embed.reshape(1, grid_size, grid_size, dim).permute(0, 3, 1, 2)
 
-        # Use 'size' instead of 'scale_factor' for better export compatibility
-        # We provide a list of tensors/integers which the tracer can track
-        target_size = (w0.to(torch.int64), h0.to(torch.int64))
+        target_size = (w0, h0)
 
         patch_pos_embed = nn.functional.interpolate(
             patch_pos_embed,
@@ -209,8 +208,8 @@ class DinoVisionTransformer(nn.Module):
         )
 
         if not torch.jit.is_tracing() and not torch.compiler.is_compiling():
-            assert int(w0) == patch_pos_embed.shape[-2]
-            assert int(h0) == patch_pos_embed.shape[-1]
+            assert w0 == patch_pos_embed.shape[-2]
+            assert h0 == patch_pos_embed.shape[-1]
 
         patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(1, -1, dim)
         return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1).to(previous_dtype)
@@ -319,9 +318,7 @@ class DinoVisionTransformer(nn.Module):
         if reshape:
             B, _, w, h = x.shape
             outputs = [
-                # Use torch.div with rounding_mode instead of // for tracing
-                out.reshape(B, torch.div(w, self.patch_size, rounding_mode='floor'),
-                            torch.div(h, self.patch_size, rounding_mode='floor'), -1).permute(0, 3, 1, 2).contiguous()
+                out.reshape(B, w // self.patch_size, h // self.patch_size, -1).permute(0, 3, 1, 2).contiguous()
                 for out in outputs
             ]
         if return_class_token:

@@ -77,7 +77,8 @@ python = ">=3.10,<3.14"
 [tool.pixi.feature.onnx.pypi-dependencies]
 onnx = "*"
 onnxscript = "*"
-onnxruntime = "*"
+onnxruntime-gpu = "*"
+onnxsim = "*"
 pytest = "*"
 # PyTorch >2.8 causes an issue while compiling on Windows
 # - https://github.com/pytorch/pytorch/issues/148317#issuecomment-3344732754
@@ -96,10 +97,12 @@ solve-group = "default"
 
 [tool.pixi.tasks]
 build-curope = "pip install -e . --no-build-isolation"
+gradio-app = "python gradio_app.py"
 
 [tool.pixi.feature.onnx.tasks]
 export-encoder-onnx = "python scripts/export_encoder_onnx.py"
 export-onnx = "python scripts/export_onnx.py"
+gradio-app-onnx = "python gradio_app_onnx.py"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

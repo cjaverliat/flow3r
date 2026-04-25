@@ -434,8 +434,9 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/e3/94/1843518e420fa3ed6919835845df698c7e27e183cb997394e4a670973a65/omegaconf-2.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a7/00/4823f06357892d1e60d6f34e7299d2ba4ed2108c487cc394f7ce85a3ff14/onnx-1.21.0-cp312-abi3-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/8c/aa/f7a53321c60b9ad9ee184b6018292ed6b5389947592a2c8c09c736bb7f9e/onnx_ir-0.2.1-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/d2/c4/810809e3b411fd66958bdd7285a63acf948988ab4189e1fd860a2f999db3/onnxruntime-1.25.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+      - pypi: https://files.pythonhosted.org/packages/f5/15/e63fe7b1abad6884bed07e9bb333e9f0ea48fbb8cbc1ea4a67ee6019d5d0/onnxruntime_gpu-1.25.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/b9/ce/2ed92575cc3be4ea1db5f38f16f20765f9b20b69b14d6c1d9972658a8ee9/onnxscript-0.7.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/32/f0/e0c47b0689501d7b6e4934743c89871f964eb3cbb4de5a80169c8bdaf759/onnxsim-0.6.2-cp312-abi3-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/fd/55/b3b49a1b97aabcfbbd6c7326df9cb0b6fa0c0aefa8e89d500939e04aa229/opencv_python-4.13.0.92-cp37-abi3-manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/23/91/7e722f352ad67ca573cee44de2a58fb810d0f4eb4e33276c6a557979fd8a/orjson-3.11.8-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/7a/c2/920ef838e2f0028c8262f16101ec09ebd5969864e5a64c4c05fad0617c56/packaging-26.1-py3-none-any.whl
@@ -572,8 +573,9 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/e3/94/1843518e420fa3ed6919835845df698c7e27e183cb997394e4a670973a65/omegaconf-2.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/9c/a6/5eefbe5b40ea96de95a766bd2e0e751f35bdea2d4b951991ec9afaa69531/onnx-1.21.0-cp312-abi3-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/8c/aa/f7a53321c60b9ad9ee184b6018292ed6b5389947592a2c8c09c736bb7f9e/onnx_ir-0.2.1-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/42/3d/b736cda9c71b3df022ca6bbcb991d14b7723c068dbebe826af9102e79777/onnxruntime-1.25.0-cp313-cp313-win_amd64.whl
+      - pypi: https://files.pythonhosted.org/packages/21/10/b3533243d062b589d4b1f3ae26584af332c5cde618e7f6f5ff6fabbfd5f2/onnxruntime_gpu-1.25.0-cp313-cp313-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/b9/ce/2ed92575cc3be4ea1db5f38f16f20765f9b20b69b14d6c1d9972658a8ee9/onnxscript-0.7.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/90/1f/ea45faff66c18186eee94b26b56de3ccae6b3959e35610d63d46752940f9/onnxsim-0.6.2-cp312-abi3-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/e9/a5/1be1516390333ff9be3a9cb648c9f33df79d5096e5884b5df71a588af463/opencv_python-4.13.0.92-cp37-abi3-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/c1/f9/4e494a56e013db957fb77186b818b916d4695b8fa2aa612364974160e91b/orjson-3.11.8-cp313-cp313-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/7a/c2/920ef838e2f0028c8262f16101ec09ebd5969864e5a64c4c05fad0617c56/packaging-26.1-py3-none-any.whl
@@ -1420,7 +1422,7 @@ packages:
 - pypi: ./
   name: flow3r
   version: 0.2.3
-  sha256: 7bcd06658c9f13ff44c1e76a1f4221bfbf4cc7b1de80a3305a4e63d66791ccb9
+  sha256: cea48991cb0701abf533ce5f44fc28203a0cfb3479d103a201410b8c5895a60f
   requires_python: '>=3.10'
 - pypi: https://files.pythonhosted.org/packages/38/60/35186529de1db3c01f5ad625bde07c1f576305eab6d86bbda4c58445f721/fonttools-4.62.1-cp313-cp313-win_amd64.whl
   name: fonttools
@@ -2719,10 +2721,10 @@ packages:
   - ml-dtypes>=0.5.0
   - sympy>=1.13
   requires_python: '>=3.9'
-- pypi: https://files.pythonhosted.org/packages/42/3d/b736cda9c71b3df022ca6bbcb991d14b7723c068dbebe826af9102e79777/onnxruntime-1.25.0-cp313-cp313-win_amd64.whl
-  name: onnxruntime
+- pypi: https://files.pythonhosted.org/packages/21/10/b3533243d062b589d4b1f3ae26584af332c5cde618e7f6f5ff6fabbfd5f2/onnxruntime_gpu-1.25.0-cp313-cp313-win_amd64.whl
+  name: onnxruntime-gpu
   version: 1.25.0
-  sha256: 9196c32c039c37ce8362cbee0aa3a704679be5f2b6fb3e849fea927c98fe1e5b
+  sha256: 9a3682158e5e911385252eb95d6332b6f525972746c582e10f8a78213b39e624
   requires_dist:
   - flatbuffers
   - numpy>=1.21.6
@@ -2730,11 +2732,16 @@ packages:
   - protobuf
   - sympy ; extra == 'symbolic'
   - ml-dtypes ; extra == 'quantization'
+  - nvidia-cuda-nvrtc-cu12~=12.0 ; extra == 'cuda'
+  - nvidia-cuda-runtime-cu12~=12.0 ; extra == 'cuda'
+  - nvidia-cufft-cu12~=11.0 ; extra == 'cuda'
+  - nvidia-curand-cu12~=10.0 ; extra == 'cuda'
+  - nvidia-cudnn-cu12~=9.0 ; extra == 'cudnn'
   requires_python: '>=3.11'
-- pypi: https://files.pythonhosted.org/packages/d2/c4/810809e3b411fd66958bdd7285a63acf948988ab4189e1fd860a2f999db3/onnxruntime-1.25.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
-  name: onnxruntime
+- pypi: https://files.pythonhosted.org/packages/f5/15/e63fe7b1abad6884bed07e9bb333e9f0ea48fbb8cbc1ea4a67ee6019d5d0/onnxruntime_gpu-1.25.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+  name: onnxruntime-gpu
   version: 1.25.0
-  sha256: ade74e651e28b39e6bfd6f576cb9b8a4edfa0916234145154dc891bd55331c22
+  sha256: e462eb13ee9955117baec4f518916c1e7cb1a96001114105632bc6d454c6aee6
   requires_dist:
   - flatbuffers
   - numpy>=1.21.6
@@ -2742,6 +2749,11 @@ packages:
   - protobuf
   - sympy ; extra == 'symbolic'
   - ml-dtypes ; extra == 'quantization'
+  - nvidia-cuda-nvrtc-cu12~=12.0 ; extra == 'cuda'
+  - nvidia-cuda-runtime-cu12~=12.0 ; extra == 'cuda'
+  - nvidia-cufft-cu12~=11.0 ; extra == 'cuda'
+  - nvidia-curand-cu12~=10.0 ; extra == 'cuda'
+  - nvidia-cudnn-cu12~=9.0 ; extra == 'cudnn'
   requires_python: '>=3.11'
 - pypi: https://files.pythonhosted.org/packages/b9/ce/2ed92575cc3be4ea1db5f38f16f20765f9b20b69b14d6c1d9972658a8ee9/onnxscript-0.7.0-py3-none-any.whl
   name: onnxscript
@@ -2755,6 +2767,22 @@ packages:
   - packaging
   - typing-extensions>=4.10
   requires_python: '>=3.9'
+- pypi: https://files.pythonhosted.org/packages/32/f0/e0c47b0689501d7b6e4934743c89871f964eb3cbb4de5a80169c8bdaf759/onnxsim-0.6.2-cp312-abi3-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+  name: onnxsim
+  version: 0.6.2
+  sha256: a9f47e33e24eaf0b242f3db93c99ab60709d4302f832a2a5b6230ca088c001cb
+  requires_dist:
+  - onnx
+  - rich
+  requires_python: '>=3.7'
+- pypi: https://files.pythonhosted.org/packages/90/1f/ea45faff66c18186eee94b26b56de3ccae6b3959e35610d63d46752940f9/onnxsim-0.6.2-cp312-abi3-win_amd64.whl
+  name: onnxsim
+  version: 0.6.2
+  sha256: 5d48239ef14a211462f833b59f1d4afad24d0a2e4b08c02d2bd1ad37bb2d07db
+  requires_dist:
+  - onnx
+  - rich
+  requires_python: '>=3.7'
 - pypi: https://files.pythonhosted.org/packages/e9/a5/1be1516390333ff9be3a9cb648c9f33df79d5096e5884b5df71a588af463/opencv_python-4.13.0.92-cp37-abi3-win_amd64.whl
   name: opencv-python
   version: 4.13.0.92
