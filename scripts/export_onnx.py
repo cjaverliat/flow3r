@@ -73,14 +73,16 @@ if __name__ == "__main__":
     )
     logging.info(f"Exported ONNX model to {os.path.abspath(output_path)}.")
 
-    # onnxsim calls SerializeToString() internally which fails for models >2 GB.
-    # Load with external data disabled so weights stay on disk, keeping the
-    # in-memory proto small enough to serialize.
-    model = onnx.load(output_path, load_external_data=False)
-
-    try:
-        # Pass dynamic input shapes so onnxsim does not bake in the dummy-input
-        # dimensions during constant folding.
+    # onnxsim requires the full proto in memory (SerializeToString) which fails
+    # for models >2 GB. If the export produced an external-data sidecar file,
+    # the model is too large to simplify this way — skip gracefully.
+    external_data_path = output_path + ".data"
+    if os.path.exists(external_data_path):
+        logging.warning(
+            "Model uses external data (>2 GB); skipping onnxsim simplification."
+        )
+    else:
+        model = onnx.load(output_path)
         model, success = onnxsim.simplify(
             model,
             overwrite_input_shapes={"imgs": [B, N, C, H, W]}
@@ -91,5 +93,3 @@ if __name__ == "__main__":
                 f"Successfully simplified the model and overwrote {os.path.abspath(output_path)}.")
         else:
             logging.warning("onnxsim reported failure — keeping the unsimplified model.")
-    except Exception as e:
-        logging.warning(f"onnxsim simplification skipped ({e}); model saved without simplification.")
