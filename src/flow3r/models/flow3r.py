@@ -263,7 +263,7 @@ class Flow3r(nn.Module):
             # camera
             camera_hidden = camera_hidden.float()
             camera_poses = self.camera_head(camera_hidden[:, self.patch_start_idx:], patch_h, patch_w).reshape(B, N, 4,
-                                                                                                               4)
+                                                                                         4)
 
             # Flow
             if pair_indices is not None:
@@ -297,7 +297,7 @@ class Flow3r(nn.Module):
         max_pos = max(max_img_w, max_img_h) // patch_size
 
         model_kwargs = dict(for_onnx=True, max_pos=max_pos)
-        flow3r = Flow3r.from_pretrained("Clara211111/flow3r", model_kwargs=model_kwargs)
+        flow3r = Flow3r.from_pretrained(pretrained_model_name_or_path, model_kwargs=model_kwargs)
         flow3r = flow3r.cpu().eval()
 
         output_dir = Path(output_dir)
