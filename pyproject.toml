@@ -5,7 +5,7 @@ authors = [
 dependencies = []
 name = "flow3r"
 requires-python = ">= 3.10"
-version = "0.2.5"
+version = "0.2.6"
 
 [build-system]
 build-backend = "setuptools.build_meta"
@@ -102,10 +102,3 @@ gradio-app = "python gradio_app.py"
 [tool.pixi.feature.onnx.tasks]
 export-onnx = "python scripts/export_onnx.py"
 gradio-app-onnx = "python gradio_app_onnx.py"
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-markers = [
-    "slow: end-to-end tests that load the pretrained Flow3r checkpoint",
-    "onnx: tests that run torch.onnx.export and/or onnxruntime",
-]

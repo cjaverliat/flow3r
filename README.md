@@ -41,7 +41,15 @@ conda activate flow3r
 
 pip install -r requirements.txt
 ```
-### 2. Download and place checkpoint
+
+### 2. (Optional) Build CUDA extensions
+For improved performance, you can compile the CUDA extensions by setting the `FLOW3R_BUILD_CUDA` environment variable:
+```bash
+FLOW3R_BUILD_CUDA=1 pip install -e .
+```
+> Requires a CUDA-capable GPU and compatible CUDA toolkit. If skipped, the CPU fallback will be used automatically.
+
+### 3. Download and place checkpoint
 - `flow3r.bin`: Flow3r trained on ~834k video sequences.
 
 Please fetch the checkpoint manually from [Google Drive](https://drive.google.com/drive/folders/1BYkkpf8L8QMa3zhLG7ACnIN3jgtXbT3f?usp=sharing) and drop the file into `checkpoints/`.
