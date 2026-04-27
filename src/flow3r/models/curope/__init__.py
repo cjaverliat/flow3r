@@ -1,1 +1,0 @@
-from .curope2d import RoPE2D

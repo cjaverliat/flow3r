@@ -113,9 +113,6 @@ class FlashAttention(Attention):
         return x
 
 
-"""
-Following is written by GPT-4o
-"""
 class CrossAttentionRope(nn.Module):
     def __init__(
         self,

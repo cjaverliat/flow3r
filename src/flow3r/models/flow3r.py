@@ -5,10 +5,10 @@ from copy import deepcopy
 
 from .dinov2.layers import Mlp
 from ..utils.geometry import homogenize_points
-from .layers.pos_embed import RoPE2D, PositionGetter
+from .layers.pos_embed import PositionGetter
 from .layers.block import BlockRope
 from .layers.attention import FlashAttentionRope
-from .layers.transformer_head import TransformerDecoder, LinearPts3d, ContextTransformerDecoder
+from .layers.transformer_head import TransformerDecoder, LinearPts3d
 from .layers.camera_head import CameraHead
 from .flow_head.dpt_head import DPTHead
 from .dinov2.hub.backbones import dinov2_vitl14_reg
@@ -43,12 +43,21 @@ class Flow3r(nn.Module):
         self.pos_type = pos_type if pos_type is not None else 'none'
         self.rope = None
         if self.pos_type.startswith('rope'):  # eg rope100
-            if RoPE2D is None:
-                raise ImportError("Cannot find cuRoPE2D, please install it following the README instructions")
+
             freq = float(self.pos_type[len('rope'):])
-            self.rope = RoPE2D(freq=freq)
-            if hasattr(self.rope, "max_pos"):
-                self.rope.max_pos = max_pos
+
+            if not for_onnx:
+                try:
+                    from flow3r.models.curope.curope2d import RoPE2D
+                except ImportError:
+                    print('Warning, cannot find cuda-compiled version of RoPE2D, using a slow pytorch version instead')
+                    from flow3r.models.curope.rope2d import RoPE2D
+
+                self.rope = RoPE2D(freq=freq)
+            else:
+                from flow3r.models.curope.rope2d import RoPE2D
+                self.rope = RoPE2D(freq=freq, max_pos=max_pos)
+
             self.position_getter = PositionGetter()
         else:
             raise NotImplementedError
