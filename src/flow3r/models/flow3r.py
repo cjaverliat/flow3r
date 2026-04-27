@@ -13,9 +13,11 @@ from .layers.camera_head import CameraHead
 from .flow_head.dpt_head import DPTHead
 from .dinov2.hub.backbones import dinov2_vitl14_reg
 
-from pathlib import Path
 from typing import Union, Optional, Dict, Any, IO
 from huggingface_hub import hf_hub_download
+from pathlib import Path
+
+import logging
 
 
 class Flow3r(nn.Module):
@@ -251,7 +253,8 @@ class Flow3r(nn.Module):
 
             # camera
             camera_hidden = camera_hidden.float()
-            camera_poses = self.camera_head(camera_hidden[:, self.patch_start_idx:], patch_h, patch_w).reshape(B, N, 4, 4)
+            camera_poses = self.camera_head(camera_hidden[:, self.patch_start_idx:], patch_h, patch_w).reshape(B, N, 4,
+                                                                                                               4)
 
             # Flow
             if pair_indices is not None:
@@ -273,3 +276,52 @@ class Flow3r(nn.Module):
             camera_poses=camera_poses,
             flow=flow,
         )
+
+    @staticmethod
+    def export_onnx(pretrained_model_name_or_path: str | Path = "Clara211111/flow3r",
+                    output_dir: Path | str = "./outputs", max_img_w: int = 672, max_img_h: int = 672):
+
+        patch_size = 14
+        assert max_img_w % patch_size == 0
+        assert max_img_h % patch_size == 0
+
+        max_pos = max(max_img_w, max_img_h) // patch_size
+
+        model_kwargs = dict(for_onnx=True, max_pos=max_pos)
+        flow3r = Flow3r.from_pretrained("Clara211111/flow3r", model_kwargs=model_kwargs)
+        flow3r = flow3r.cpu().eval()
+
+        output_dir = Path(output_dir)
+
+        # B=1, N=2 (num frames), C=3, H, W.
+        # H and W must be multiples of 14 (DINOv2 patch size).
+        # Use non-max dummy values so the exporter sees variation from the bounds.
+        B, N, C, H, W = 2, 2, 3, 448, 448
+        dummy_imgs = torch.randn((B, N, C, H, W), dtype=torch.float32)
+
+        b_sym = torch.export.Dim("B", min=1, max=16)
+        n_sym = torch.export.Dim("N", min=1, max=16)
+        # Express H and W as multiples of patch_size so the exporter knows the
+        # divisibility constraint and won't specialise on the dummy value.
+        patch_h_sym = torch.export.Dim("patch_H", min=1, max=max_img_h // patch_size)
+        patch_w_sym = torch.export.Dim("patch_W", min=1, max=max_img_w // patch_size)
+        h_sym = patch_size * patch_h_sym
+        w_sym = patch_size * patch_w_sym
+
+        output_path = output_dir / "flow3r.onnx"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Note that pair_indices stays None so the flow_head will not be exported.
+        torch.onnx.export(
+            flow3r,
+            (dummy_imgs,),
+            output_path.absolute().as_posix(),
+            input_names=["imgs"],
+            output_names=["points", "local_points", "conf", "camera_poses", "flow"],
+            opset_version=18,
+            dynamo=True,
+            dynamic_shapes={
+                "imgs": {0: b_sym, 1: n_sym, 3: h_sym, 4: w_sym},
+            },
+        )
+        logging.info(f"Exported ONNX model to {output_path.absolute().as_posix()}.")

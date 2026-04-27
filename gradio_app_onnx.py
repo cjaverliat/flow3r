@@ -24,8 +24,8 @@ TRT_CACHE_PATH = os.environ.get("FLOW3R_TRT_CACHE", "./outputs/trt_cache")
 # TensorRT optimization profile — (B=1 fixed, N dynamic, C=3, H dynamic, W dynamic)
 _TRT_B = 1
 _TRT_N_MIN, _TRT_N_OPT, _TRT_N_MAX = 1, 2, 8
-_TRT_H_MIN, _TRT_H_OPT, _TRT_H_MAX = 1, 336, 672
-_TRT_W_MIN, _TRT_W_OPT, _TRT_W_MAX = 1, 336, 672
+_TRT_H_MIN, _TRT_H_OPT, _TRT_H_MAX = 14, 336, 672
+_TRT_W_MIN, _TRT_W_OPT, _TRT_W_MAX = 14, 336, 672
 
 
 def _shape_str(b, n, h, w):

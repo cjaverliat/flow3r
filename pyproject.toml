@@ -5,7 +5,7 @@ authors = [
 dependencies = []
 name = "flow3r"
 requires-python = ">= 3.10"
-version = "0.2.3"
+version = "0.2.4"
 
 [build-system]
 build-backend = "setuptools.build_meta"
@@ -100,7 +100,6 @@ build-curope = "pip install -e . --no-build-isolation"
 gradio-app = "python gradio_app.py"
 
 [tool.pixi.feature.onnx.tasks]
-export-encoder-onnx = "python scripts/export_encoder_onnx.py"
 export-onnx = "python scripts/export_onnx.py"
 gradio-app-onnx = "python gradio_app_onnx.py"
 
