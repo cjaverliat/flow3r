@@ -5,7 +5,7 @@ authors = [
 dependencies = []
 name = "flow3r"
 requires-python = ">= 3.10"
-version = "0.2.4"
+version = "0.2.5"
 
 [build-system]
 build-backend = "setuptools.build_meta"
